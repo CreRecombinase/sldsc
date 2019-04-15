@@ -1,0 +1,119 @@
+from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
+from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
+
+FTP = FTPRemoteProvider()
+HTTP = HTTPRemoteProvider()
+
+
+rule all:
+    input:
+        expand("bed/{tiss}.H3K27ac.bed",tiss=["Adult_Liver","Adipose_Nuclei","PBMC"]),
+        expand("1000G_EUR_Phase3_plink/1000G.EUR.QC.{ch}.{ext}",ch=range(1,23),ext=["bed","fam","bim"])
+
+
+rule gwas_bmi:
+    ''' Download the BMI GWAS data and decompress it'''
+    input:
+        HTTP.remote("http://portals.broadinstitute.org/collaboration/giant/images/3/33/GIANT_BMI_Speliotes2010_publicrelease_HapMapCeuFreq.txt", keep_local=True)
+    output:
+        "GWAS/BMI_GWAS.txt"
+    run:
+        outputName = os.path.basename(input[0])
+        shell("mv {input} {output}")
+
+
+
+rule adult_liver:
+    '''Download adult liver H3K27ac data'''
+    input:
+        FTP.remote("ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM1112nnn/GSM1112809/suppl/GSM1112809_BI.Adult_Liver.H3K27ac.4.bed.gz",keep_local=True)
+    output:
+        outf="bed/Adult_Liver.H3K27ac.bed"
+    run:
+        shell("zcat {input} > {output.outf}")
+
+rule baseline_ld:
+    '''Download baseline LD scores'''
+    input:
+        HTTP.remote("https://data.broadinstitute.org/alkesgroup/LDSCORE/1000G_Phase1_baseline_ldscores.tgz"),
+    output:
+        temp("1000G_Phase1_baseline_ldscores.tgz"),
+        expand("baseline/baseline.{chrom}.{ext}",chrom=range(1,23),ext=["annot.gz","l2.ldscore","l2.M_50"])
+    run:
+        outputName = os.path.basename(input[0])
+        shell("mv {input} {outputName}")
+        shell("tar -xvzf {outputName}")
+
+rule adipose_nuclei:
+    '''Download adipose H3K27ac data'''
+    input:
+        FTP.remote("ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM916nnn/GSM916066/suppl/GSM916066_BI.Adipose_Nuclei.H3K27ac.7.bed.gz",keep_local=True)
+    output:
+        outf="bed/Adipose_Nuclei.H3K27ac.bed"
+    run:
+        shell("zcat {input} > {output.outf}")
+
+rule pbmc:
+    '''Download PBMC H3K27ac data'''
+    input:
+        FTP.remote("ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM1127nnn/GSM1127145/suppl/GSM1127145_UCSF-UBC.Peripheral_Blood_Mononuclear_Primary_Cells.H3K27ac.TC015.bed.gz",keep_local=True)
+    output:
+        outf="bed/PBMC.H3K27ac.bed"
+    run:
+        shell("zcat {input} > {output.outf}")
+
+rule dl_ref:
+    '''Download 1000 genomes reference genotypes at hapmap 3 loci'''
+    input:
+        HTTP.remote("https://data.broadinstitute.org/alkesgroup/LDSCORE/1000G_Phase3_plinkfiles.tgz", keep_local=True)
+    output:
+        temp("1000G_Phase3_plinkfiles.tgz"),
+        expand("1000G_EUR_Phase3_plink/1000G.EUR.QC.{ch}.{ext}",ch=range(1,23),ext=["bed","fam","bim"])
+    run:
+        outputName = os.path.basename(input[0])
+        shell("mv {input} {outputName}")
+        shell("tar -xvzf {outputName}")
+rule frqf:
+    input:
+        HTTP.remote("https://data.broadinstitute.org/alkesgroup/LDSCORE/1000G_Phase3_frq.tgz",keep_local=True)
+    output:
+        temp("1000G_Phase3_frq.tgz"),
+        expand("1000G_Phase3_frq/1000G.EUR.QC.{chrom}.frq",chrom=range(1,23))
+    run:
+        outputName = os.path.basename(input[0])
+        shell("mv {input} {outputName}")
+        shell("tar -xvzf {outputName}")
+
+rule weightf:
+    '''Download ld score regression weights'''
+    input:
+        HTTP.remote("https://data.broadinstitute.org/alkesgroup/LDSCORE/weights_hm3_no_hla.tgz",keep_local=True)
+    output:
+        temp("weights_hm3_no_hla.tgz"),
+        expand("weights_hm3_no_hla/weights.{chrom}.l2.ldscore.gz",chrom=range(1,23))
+    run:
+        outputName = os.path.basename(input[0])
+        shell("mv {input} {outputName}")
+        shell("tar -xvzf {outputName}")
+
+
+rule snp_list:
+    ''' Download hapmap3 SNPs'''
+    input:
+         HTTP.remote("https://data.broadinstitute.org/alkesgroup/LDSCORE/hapmap3_snps.tgz",keep_local=True)
+    output:
+        temp("hapmap3_snps.tgz"),
+        expand("hapmap3_snps/hm.{chrom}.snp",chrom=range(1,23))
+    run:
+        outputName = os.path.basename(input[0])
+        shell("mv {input} {outputName}")
+        shell("tar -xvzf {outputName}")
+
+rule h3_snplist:
+    ''' Concatenated list of hapmap 3 snps'''
+    input:
+        HTTP.remote("https://data.broadinstitute.org/alkesgroup/LDSCORE/w_hm3.snplist.bz2",keep_local=True)
+    output:
+        "w_hm3.snplist.txt"
+    run:
+        shell("bzcat {input} > {output}")
